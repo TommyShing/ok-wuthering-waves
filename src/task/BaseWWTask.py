@@ -1138,15 +1138,15 @@ class BaseWWTask(BaseTask):
                 raise Exception('must be in game world and in teams')
         return True
 
-    # ---------- F2 图鉴列表：按「第 N 个区域 / 区内第 M 张」定位 ----------
+    # ---------- F2 book list: locate by "N-th bar / M-th card inside it" ----------
     def _book_find_arrows(self, frame):
-        """返回展开态区域栏的箭头框，按 y 从上到下。"""
+        """Return the expanded bar arrows as boxes, top to bottom."""
         return self.find_feature('book_arrow_expanded', frame=frame, limit=0,
                                  threshold=BOOK_ARROW_THRESHOLD,
                                  box=self.box_of_screen(0.90, 0.13, 0.97, 0.97))
 
     def _book_sliding_block(self, frame):
-        """返回滚动条滑块 (top, bottom) 像素坐标，找不到（内容不满一屏）返回 None。"""
+        """Return the scroll bar thumb as (top, bottom) in pixels, None when the list fits one screen."""
         box = self.box_of_screen(0.969, 0.10, 0.978, 0.98)
         rects = find_color_rectangles(frame, book_bar_color,
                                       self.width_of_screen(5 / 2560), self.height_of_screen(10 / 1440),
@@ -1157,62 +1157,48 @@ class BaseWWTask(BaseTask):
         return rect.y, rect.y + rect.height - 1
 
     def _book_bar_is_gold(self, frame, arrow):
-        """栏底色是不是金色（限时提前开放）。取箭头框左上角，避开字形和辉光。"""
-        h = frame.shape[0]
+        """Whether the bar behind the arrow is gold (early access). Samples the top rows of the
+        arrow box, which sit above the glyph and away from its glow."""
         x0, y0 = arrow.x, arrow.y
-        patch = frame[max(0, y0):y0 + max(1, round(4 * h / 1080)),
-                      max(0, x0):x0 + max(1, round(8 * h / 1080)), :3].astype(int)
+        patch = frame[y0:y0 + self.height_of_screen(4 / 1080),
+                      x0:x0 + self.width_of_screen(8 / 1080), :3].astype(int)
         b, g, _ = patch.mean(axis=(0, 1))
         return (g - b) > 15
 
     def click_on_book_target(self, bar_index: int, card_index: int):
-        """定位「第 bar_index 根栏」里的「第 card_index 张」卡片并点击。
+        """Click the M-th card inside the N-th bar of the F2 book list.
 
-        前提：进入页签时所有区域都是展开的、列表在顶部。
-        只识别展开态箭头 ▲。先计算挑战按钮坐标，可见时直接点击；超出可见区才查滑块。
-        找不到滑块或目标超出整张列表时抛 IndexError。中间栏的卡片数量无法校验。
-        返回 is_team（True 表示进入了组队界面）。
+        Assumes every bar is expanded and the list is scrolled to the top on entry.
+        Only the expanded arrow is recognized. The challenge position is computed first and
+        clicked directly when it is on screen; the scroll bar is probed only when it is not.
+        Raises IndexError when no scroll bar exists or the target is past the end of the list.
+        The number of cards inside a middle bar cannot be verified.
+        Returns is_team, True when the team screen opened.
         """
         self.sleep(0.5)
         if bar_index < 1 or card_index < 1:
             raise IndexError(f'bar_index and card_index must start from 1, got {bar_index}, {card_index}')
 
-        # 列表在顶部时，最上面那个 ▲ 就是第 1 根栏 -> 反推列表顶。列表顶不会随收起而变，只算这一次。
+        # 1) On entry every bar is expanded and the list is at the top, so the first arrow is bar 1
+        #    and fixes the list top. The target's own arrow is the N-th one. Everything that reads
+        #    pixels is done here, while those coordinates are still valid.
         self.next_frame()
         arrows = self._book_find_arrows(self.frame)
-        if not arrows:
-            raise IndexError(f'no bar found, bar_index={bar_index}')
-        h, w = self.frame.shape[:2]
+        if len(arrows) < bar_index:
+            raise IndexError(f'bar_index out of range: {bar_index}, this tab has only {len(arrows)} bars')
+        h = self.frame.shape[0]
         list_top = arrows[0].y + arrows[0].height / 2 - BOOK_BAR_H * h / 2 - BOOK_GAP_LIST_TOP_BAR * h
+        # Gold means early access; both kinds continue down the author's flow.
+        gold = self._book_bar_is_gold(self.frame, arrows[bar_index - 1])
+        self.log_info(f'target bar is {"GOLD (early access)" if gold else "normal"}')
 
-        # 1) 把目标栏上方的栏全部收起（从下往上点，坐标不受影响）
-        collapsed = 0
-        for _ in range(BOOK_COLLAPSE_MAX_ROUNDS):
-            todo = [(i, p) for i, p in
-                    zip(range(collapsed + 1, collapsed + 1 + len(arrows)), arrows) if i < bar_index]
-            if not todo:
-                break
-            for i, p in reversed(todo):
-                self.log_info(f'collapse bar {i}')
-                cx, cy = p.center()
-                self.click_relative(cx / w, cy / h, after_sleep=0.9, name=f'collapse{i}')
-            collapsed += len(todo)
-            self.sleep(0.3)
-            self.next_frame()
-            arrows = self._book_find_arrows(self.frame)
-            if not arrows:
-                # 栏都收完了还没轮到目标栏 -> bar_index 超过这个页签的实际栏数
-                raise IndexError(f'bar_index out of range: {bar_index}, this tab has only {collapsed} bars')
-        if collapsed != bar_index - 1:
-            raise RuntimeError(f'could not reach bar {bar_index}: collapsed {collapsed} preceding bars '
-                               f'after {BOOK_COLLAPSE_MAX_ROUNDS} rounds')
-        self.log_info(f'collapsed {collapsed} bars, bar {bar_index} is on top')
+        # 2) Collapse the bars above the target, bottom-up: collapsing a bar only moves the bars
+        #    below it, so the ones still above keep their coordinates.
+        for i in reversed(range(bar_index - 1)):
+            self.log_info(f'collapse bar {i + 1}')
+            self.click(arrows[i], after_sleep=0.9)
 
-        # 2) 此刻最上面那个 ▲ 就是目标栏；金色代表「限时提前开放」，两种都继续走作者流程
-        gold = self._book_bar_is_gold(self.frame, arrows[0])
-        self.log_info(f'target bar is {"GOLD (限时提前开放)" if gold else "normal"}')
-
-        # 3) 先计算挑战按钮坐标，在列表可见区内就直接点击。
+        # 3) Compute the challenge position first; click it directly when it is on screen.
         track_bottom = BOOK_SCROLL_BAR_BOTTOM * h
         to_bottom = (BOOK_GAP_LIST_TOP_BAR
                      + (bar_index - 1) * (BOOK_BAR_H + BOOK_GAP_BAR_BAR)
@@ -1220,27 +1206,29 @@ class BaseWWTask(BaseTask):
                      + (card_index - 1) * (BOOK_CARD_H + BOOK_GAP_CARD_CARD) + BOOK_CARD_H) * h
         target_y = list_top + to_bottom - BOOK_CARD_H * h / 2
 
-        # 4) 按钮超出可见区才找滑块，点轨道往下滚，让目标卡底对齐可见区底。
-        #    没有滑块时无法到达窗口外的目标，直接报错。
-        #    目标卡底已经超出整张列表总长，滑到底也够不着 -> 报错，
-        #    不能硬点，否则会点到别的卡上，静默传送到错误的 Boss。
+        # 4) Only an off-screen target needs the scroll bar. Without one the target is unreachable;
+        #    past the end of the whole list scrolling cannot get there either. Both raise instead of
+        #    clicking blind, which would land on another card and silently travel to the wrong boss.
         if target_y > track_bottom:
+            # Collapsing shortened the list, so the thumb has to be read from the current frame.
+            self.next_frame()
             block = self._book_sliding_block(self.frame)
             if not block:
                 raise IndexError(f'card_index out of range: bar {bar_index} card {card_index}, '
                                  f'challenge y={target_y:.0f} > visible bottom {track_bottom:.0f}, '
                                  f'no scroll bar found')
-            # 列表在顶部时滑块顶就是轨道顶，可见区高度 = 轨道底 - 滑块顶。
+            # With the list at the top the thumb top is the track top, so the view height is
+            # track bottom minus thumb top.
             view = track_bottom - block[0]
             block_len = block[1] - block[0] + 1
             content = view * view / block_len
             if content <= view or to_bottom > content:
                 raise IndexError(f'card_index out of range: bar {bar_index} card {card_index}, '
                                  f'to_bottom={to_bottom:.0f} > list end {content:.0f}')
-            ratio = (to_bottom - view) / (content - view)  # 此处必在 (0, 1] 内
-            # 滑块顶最多推到「轨道底再往上一个滑块长」
+            ratio = (to_bottom - view) / (content - view)  # always inside (0, 1] here
+            # The thumb top can go no higher than one thumb length above the track bottom.
             want_top = min(block[0] + ratio * (view - block_len), track_bottom - block_len)
-            # 轨道点击语义：点在滑块下方 -> 滑块「底边」落到点击处，所以多点一个滑块长
+            # Clicking below the thumb puts its bottom edge at the click, so add one thumb length.
             click_y = min(want_top + block_len, track_bottom - 2)
             self.log_info(f'to_bottom={to_bottom:.0f} view={view:.0f} block={block[0]}..{block[1]} '
                           f'len={block_len} content={content:.0f} ratio={ratio:.3f} '
@@ -1250,7 +1238,7 @@ class BaseWWTask(BaseTask):
         else:
             self.log_info(f'to_bottom={to_bottom:.0f} challenge y={target_y:.0f} no scroll')
 
-        # 5) 点「直接挑战」
+        # 5) Click the challenge button.
         self.log_info(f'click challenge button at y={target_y:.0f}')
         self.click_relative(BOOK_BUTTON_X, target_y / h, after_sleep=1, name='challenge')
         feature = self.wait_feature(['fast_travel_custom', 'gray_teleport', 'remove_custom', 'team_close'],
@@ -1282,19 +1270,18 @@ class BaseWWTask(BaseTask):
         self.send_key(self.key_config.get('Jump Key'), after_sleep=after_sleep)
 
 
-# ---- F2 图鉴列表定位常量（1080p 实测，全部是占窗高/窗宽的比例）----
-# 只有「元素之间的缝」用 GAP，元素自身高度用 H，同类元素的节距由 H + GAP 现算
-BOOK_BAR_H = 58 / 1080               # 栏高
-BOOK_CARD_H = 138 / 1080             # 卡片高
-BOOK_GAP_LIST_TOP_BAR = 0.0135       # 列表顶 -> 第 1 根栏顶
-BOOK_GAP_BAR_CARD = 13 / 1080        # 栏 -> 卡片
-BOOK_GAP_CARD_CARD = 15 / 1080       # 卡片 -> 卡片
-BOOK_GAP_BAR_BAR = 9.5 / 1080        # 栏 -> 栏（全部收起时；含取整，节距恰为 0.0625H）
-BOOK_BUTTON_X = 0.8956               # 「直接挑战」按钮中心
-BOOK_SCROLL_BAR_X = 0.9730           # 滚动条横坐标（沿用作者）
-BOOK_SCROLL_BAR_BOTTOM = 0.8806      # 滚动条轨道底（沿用作者，实测差 1 px）
-BOOK_ARROW_THRESHOLD = 0.88
-BOOK_COLLAPSE_MAX_ROUNDS = 16        # 收起栏的循环上限，防点击不生效时死循环（正常 2~3 轮就 break）
+# ---- F2 book list geometry, measured at 1080p and kept as ratios of the window ----
+# GAP is only the seam between two elements, H is the element itself; a pitch is H + GAP.
+BOOK_BAR_H = 58 / 1080               # bar height
+BOOK_CARD_H = 138 / 1080             # card height
+BOOK_GAP_LIST_TOP_BAR = 0.0135       # list top -> first bar top
+BOOK_GAP_BAR_CARD = 13 / 1080        # bar -> card
+BOOK_GAP_CARD_CARD = 15 / 1080       # card -> card
+BOOK_GAP_BAR_BAR = 9.5 / 1080        # bar -> bar, all collapsed (with rounding the pitch is exactly 0.0625H)
+BOOK_BUTTON_X = 0.8956               # center of the challenge button
+BOOK_SCROLL_BAR_X = 0.9730           # scroll bar x, same as the author
+BOOK_SCROLL_BAR_BOTTOM = 0.8806      # scroll bar track bottom, same as the author (measured 1 px off)
+BOOK_ARROW_THRESHOLD = 0.88          # match score required for the expanded arrow
 
 book_bar_color = {
     "r": (190, 255),
