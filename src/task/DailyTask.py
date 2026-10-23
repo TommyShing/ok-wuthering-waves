@@ -31,15 +31,19 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
         self.support_tasks = ["Tacet Suppression", "Forgery Challenge", "Simulation Challenge"]
         self.default_config = {
             'Which to Farm': self.support_tasks[0],
-            'Which Tacet Suppression to Farm': 1,  # starts with 1
-            'Which Forgery Challenge to Farm': 1,  # starts with 1
+            'Which Tacet Suppression Bar to Farm': 1,  # starts with 1
+            'Which Tacet Suppression in Bar to Farm': 1,  # starts with 1
+            'Which Forgery Challenge Bar to Farm': 1,  # starts with 1
+            'Which Forgery Challenge in Bar to Farm': 1,  # starts with 1
             'Material Selection': 'Shell Credit',
             'Farm Nightmare Nest for Daily Echo': True,
             ADDITIONAL_TASKS: [CHECK_WEEKLY_GARDEN],
         }
         self.config_description = {
-            'Which Tacet Suppression to Farm': 'The Tacet Suppression number in the F2 list.',
-            'Which Forgery Challenge to Farm': 'The Forgery Challenge number in the F2 list.',
+            'Which Tacet Suppression Bar to Farm': 'Which Bar (from top, starting with 1)',
+            'Which Tacet Suppression in Bar to Farm': 'Which Boss inside that Bar (from top, starting with 1)',
+            'Which Forgery Challenge Bar to Farm': 'Which Bar (from top, starting with 1)',
+            'Which Forgery Challenge in Bar to Farm': 'Which Boss inside that Bar (from top, starting with 1)',
             'Material Selection': 'Resonator EXP / Weapon EXP / Shell Credit',
             'Farm Nightmare Nest for Daily Echo': 'Farm 1 Echo from Nightmare Nest to complete Daily Task when needed.',
             ADDITIONAL_TASKS: 'Select optional tasks. Nightmare Nest runs before stamina farming to help complete '
@@ -51,8 +55,10 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
                 'type': "drop_down",
                 'options': self.support_tasks,
                 'sub_configs': {
-                    'Tacet Suppression': ['Which Tacet Suppression to Farm'],
-                    'Forgery Challenge': ['Which Forgery Challenge to Farm'],
+                    'Tacet Suppression': ['Which Tacet Suppression Bar to Farm',
+                                          'Which Tacet Suppression in Bar to Farm'],
+                    'Forgery Challenge': ['Which Forgery Challenge Bar to Farm',
+                                          'Which Forgery Challenge in Bar to Farm'],
                     'Simulation Challenge': [
                         'Material Selection'],
                 }

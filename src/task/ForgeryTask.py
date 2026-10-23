@@ -14,14 +14,14 @@ class ForgeryTask(DomainTask):
         self.description = 'Farms the selected Forgery Challenge. Must be able to teleport (F2).'
         self.support_schedule_task = True
         self.default_config = {
-            'Which Forgery Challenge to Farm': 1,  # starts with 1
+            'Which Forgery Challenge Bar to Farm': 1,  # starts with 1
+            'Which Forgery Challenge in Bar to Farm': 1,  # starts with 1
         }
         self.config_description = {
-            'Which Forgery Challenge to Farm': 'The Forgery Challenge number in the F2 list.',
+            'Which Forgery Challenge Bar to Farm': 'Which Bar (from top, starting with 1)',
+            'Which Forgery Challenge in Bar to Farm': 'Which Boss inside that Bar (from top, starting with 1)',
         }
         self.stamina_once = 40
-        self.structure = [5, 5, 5, 5]
-        self.total_number = sum(self.structure)
         self.material_mat = None
 
     def run(self):
@@ -36,10 +36,11 @@ class ForgeryTask(DomainTask):
             must_use = 0
         if config is None:
             config = self.config
-        serial = config.get('Which Forgery Challenge to Farm', 1)
+        bar_index = config.get('Which Forgery Challenge Bar to Farm', 1)
+        card_index = config.get('Which Forgery Challenge in Bar to Farm', 1)
 
         def teleport_once():
-            self.teleport_into_domain(serial, daily)
+            self.teleport_into_domain(bar_index, card_index, daily)
 
         self.farm_domain_with_recovery_loop(must_use, teleport_once)
 
@@ -57,12 +58,10 @@ class ForgeryTask(DomainTask):
         self.click_relative(0.75, 0.90, after_sleep=1)
         self.ensure_main()
 
-    def teleport_into_domain(self, serial_number, daily=False):
+    def teleport_into_domain(self, bar_index, card_index, daily=False):
         self.open_boss_book('ningsu')
-        self.info_set('Teleport to Forgery Challenge', serial_number - 1)
-        if serial_number > self.total_number:
-            raise IndexError(f'Index out of range, max is {self.total_number}')
-        self.click_on_book_target(serial_number, self.total_number, self.structure)
+        self.info_set('Teleport to Forgery Challenge', f'{bar_index}-{card_index}')
+        self.click_on_book_target(bar_index, card_index)
         self.click(0.891, 0.910, after_sleep=1)
         self.click_team_challenge()
         self.wait_in_team_and_world(time_out=self.teleport_timeout)

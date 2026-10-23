@@ -13,14 +13,14 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
         self.name = "🌊 Tacet Suppression"
         self.support_schedule_task = True
         default_config = {
-            'Which Tacet Suppression to Farm': 1,  # starts with 1
+            'Which Tacet Suppression Bar to Farm': 1,  # starts with 1
+            'Which Tacet Suppression in Bar to Farm': 1,  # starts with 1
         }
-        self.structure = [4, 5, 5, 7]
-        self.total_number = sum(self.structure)
         self.target_enemy_time_out = 10
         default_config.update(self.default_config)
         self.config_description = {
-            'Which Tacet Suppression to Farm': 'The Tacet Suppression number in the F2 list.',
+            'Which Tacet Suppression Bar to Farm': 'Which Bar (from top, starting with 1)',
+            'Which Tacet Suppression in Bar to Farm': 'Which Boss inside that Bar (from top, starting with 1)',
         }
         self.default_config = default_config
         self.door_walk_method = {  # starts with 0
@@ -66,8 +66,9 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
                 return self.not_enough_stamina()
 
             self.open_boss_book('wuyin')
-            index = config.get('Which Tacet Suppression to Farm', 1) - 1
-            self.teleport_to_tacet(index)
+            bar_index = config.get('Which Tacet Suppression Bar to Farm', 1)
+            card_index = config.get('Which Tacet Suppression in Bar to Farm', 1)
+            self.teleport_to_tacet(bar_index, card_index)
             self.click_team_challenge()
             while True:
                 self.wait_in_team_and_world(time_out=120)
@@ -106,8 +107,6 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
         if back:
             self.back(after_sleep=1)
 
-    def teleport_to_tacet(self, index):
-        self.info_set('Teleport to Tacet Suppression', index)
-        if index >= self.total_number:
-            raise IndexError(f'Index out of range, max is {self.total_number}')
-        return self.click_on_book_target(index + 1, self.total_number, self.structure)
+    def teleport_to_tacet(self, bar_index, card_index):
+        self.info_set('Teleport to Tacet Suppression', f'{bar_index}-{card_index}')
+        return self.click_on_book_target(bar_index, card_index)
