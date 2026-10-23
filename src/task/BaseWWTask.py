@@ -1253,6 +1253,16 @@ class BaseWWTask(BaseTask):
                              f'rows {card_top:.0f}..{card_bottom:.0f}')
         self.log_info(f'click challenge button {button}')
         self.click(button, after_sleep=1)
+        if gold:
+            # A gold bar is early access, so the game warns that travelling there may spoil the
+            # story and asks to confirm. Same two-button dialog as the 4C restart, answered the
+            # same way: not finding it is fine, because the warning is not always shown.
+            if confirm := self.wait_feature(
+                    ['confirm_btn_hcenter_vcenter', 'confirm_btn_highlight_hcenter_vcenter'],
+                    raise_if_not_found=False,
+                    threshold=0.6,
+                    time_out=2):
+                self.click(confirm, after_sleep=1)
         feature = self.wait_feature(['fast_travel_custom', 'gray_teleport', 'remove_custom', 'team_close'],
                                     time_out=10, settle_time=0.5, raise_if_not_found=True)
         return feature.name == 'team_close'
