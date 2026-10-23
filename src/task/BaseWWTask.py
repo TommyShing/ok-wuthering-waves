@@ -1179,24 +1179,32 @@ class BaseWWTask(BaseTask):
         if bar_index < 1 or card_index < 1:
             raise IndexError(f'bar_index and card_index must start from 1, got {bar_index}, {card_index}')
 
-        # 1) On entry every bar is expanded and the list is at the top, so the first arrow is bar 1
-        #    and fixes the list top. The target's own arrow is the N-th one. Everything that reads
-        #    pixels is done here, while those coordinates are still valid.
+        # 1) Collapse the bars above the target, bottom-up: a click only moves the bars below it,
+        #    so the ones still above keep their coordinates and a whole screenful can go in one
+        #    pass. Bars further down only come into view once the ones above are gone, so the
+        #    arrows are recognized again after every pass, until bar_index - 1 are gone.
         self.next_frame()
         arrows = self._book_find_arrows(self.frame)
-        if len(arrows) < bar_index:
-            raise IndexError(f'bar_index out of range: {bar_index}, this tab has only {len(arrows)} bars')
+        collapsed = 0
+        while collapsed < bar_index - 1:
+            todo = arrows[:bar_index - 1 - collapsed]
+            if not todo:
+                raise IndexError(f'bar_index out of range: {bar_index}, this tab has only {collapsed} bars')
+            for i in reversed(range(len(todo))):
+                self.log_info(f'collapse bar {collapsed + i + 1}')
+                self.click(todo[i], after_sleep=0.9)
+            collapsed += len(todo)
+            self.next_frame()
+            arrows = self._book_find_arrows(self.frame)
+        if not arrows:
+            raise IndexError(f'bar_index out of range: {bar_index}, this tab has only {collapsed} bars')
+
+        # 2) The target bar is now the topmost arrow, so it sits where bar 1 was and its center
+        #    fixes the list top. Gold means early access; both kinds continue down the author's flow.
         h = self.frame.shape[0]
         list_top = arrows[0].y + arrows[0].height / 2 - BOOK_BAR_H * h / 2 - BOOK_GAP_LIST_TOP_BAR * h
-        # Gold means early access; both kinds continue down the author's flow.
-        gold = self._book_bar_is_gold(self.frame, arrows[bar_index - 1])
+        gold = self._book_bar_is_gold(self.frame, arrows[0])
         self.log_info(f'target bar is {"GOLD (early access)" if gold else "normal"}')
-
-        # 2) Collapse the bars above the target, bottom-up: collapsing a bar only moves the bars
-        #    below it, so the ones still above keep their coordinates.
-        for i in reversed(range(bar_index - 1)):
-            self.log_info(f'collapse bar {i + 1}')
-            self.click(arrows[i], after_sleep=0.9)
 
         # 3) Compute the challenge position first; click it directly when it is on screen.
         track_bottom = BOOK_SCROLL_BAR_BOTTOM * h
@@ -1210,8 +1218,6 @@ class BaseWWTask(BaseTask):
         #    past the end of the whole list scrolling cannot get there either. Both raise instead of
         #    clicking blind, which would land on another card and silently travel to the wrong boss.
         if target_y > track_bottom:
-            # Collapsing shortened the list, so the thumb has to be read from the current frame.
-            self.next_frame()
             block = self._book_sliding_block(self.frame)
             if not block:
                 raise IndexError(f'card_index out of range: bar {bar_index} card {card_index}, '
