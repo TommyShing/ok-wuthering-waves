@@ -1161,7 +1161,7 @@ class BaseWWTask(BaseTask):
         arrow box, which sit above the glyph and away from its glow."""
         x0, y0 = arrow.x, arrow.y
         patch = frame[y0:y0 + self.height_of_screen(4 / 1080),
-                      x0:x0 + self.width_of_screen(8 / 1080), :3].astype(int)
+                      x0:x0 + self.height_of_screen(8 / 1080), :3].astype(int)
         b, g, _ = patch.mean(axis=(0, 1))
         return (g - b) > 15
 
@@ -1187,6 +1187,9 @@ class BaseWWTask(BaseTask):
         #    arrows are recognized again after every pass, until bar_index - 1 are gone.
         self.next_frame()
         arrows = self._book_find_arrows(self.frame)
+        if not arrows:
+            raise IndexError(f'no bar found in this tab, bar_index={bar_index}')
+        h = self.frame.shape[0]
         collapsed = 0
         while collapsed < bar_index - 1:
             todo = arrows[:bar_index - 1 - collapsed]
@@ -1202,9 +1205,13 @@ class BaseWWTask(BaseTask):
             raise IndexError(f'bar_index out of range: {bar_index}, this tab has only {collapsed} bars')
 
         # 2) A collapsed bar keeps its slot and only turns its arrow downward, so the first up
-        #    arrow is the target bar and its bottom edge is where that bar's cards begin.
-        h = self.frame.shape[0]
-        bar_bottom = arrows[0].y + arrows[0].height / 2 + BOOK_BAR_H * h / 2
+        #    arrow is the target bar. Every bar above it is collapsed now and the list is still
+        #    at the top, so one collapsed pitch per bar above it walks back up to the top of the
+        #    list, which is what the scroll step measures the visible height from.
+        bar_top = arrows[0].y + arrows[0].height / 2 - BOOK_BAR_H * h / 2
+        bar_bottom = bar_top + BOOK_BAR_H * h
+        list_top = (bar_top - (bar_index - 1) * (BOOK_BAR_H + BOOK_GAP_BAR_BAR) * h
+                    - BOOK_GAP_LIST_TOP_BAR * h)
         # Gold means early access; both kinds continue down the author's flow.
         gold = self._book_bar_is_gold(self.frame, arrows[0])
         self.log_info(f'target bar is {"GOLD (early access)" if gold else "normal"}')
@@ -1213,36 +1220,38 @@ class BaseWWTask(BaseTask):
         card_bottom = card_top + BOOK_CARD_H * h
 
         # 3) Only a card that runs past the bottom of the view needs the scroll bar. Without one
-        #    the card is unreachable; past the end of the whole list scrolling cannot get there
-        #    either. Both raise instead of clicking blind, which would land on another card and
-        #    silently travel to the wrong boss. Scrolling ends with the card on the view bottom.
+        #    the card is unreachable, and a card past the end of the list cannot be reached by
+        #    scrolling either; both raise instead of clicking blind, which would land on another
+        #    card and silently travel to the wrong boss.
         track_bottom = BOOK_SCROLL_BAR_BOTTOM * h
         if card_bottom > track_bottom:
             block = self._book_sliding_block(self.frame)
             if not block:
                 raise IndexError(f'card_index out of range: bar {bar_index} card {card_index}, '
-                                 f'card bottom={card_bottom:.0f} > visible bottom {track_bottom:.0f}, '
+                                 f'card bottom={card_bottom:.0f} > view bottom {track_bottom:.0f}, '
                                  f'no scroll bar found')
-            # With the list at the top the thumb top is the track top, so the view height is
-            # track bottom minus thumb top.
-            view = track_bottom - block[0]
+            # The view is the part of the list on screen: from the top of the list down to the
+            # bottom of the track.
+            view = track_bottom - list_top
             block_len = block[1] - block[0] + 1
-            content = view * view / block_len
-            if content <= view or card_bottom > content:
+            # How far the list has to move up for the card bottom to reach the view bottom.
+            scroll = card_bottom - track_bottom
+            # The thumb advances by the same fraction of its own length as the content does of
+            # the view, so this is the thumb distance that scrolls the content by `scroll`.
+            advance = scroll * block_len / view
+            # The thumb can only move until its bottom reaches the track bottom.
+            if block[1] + advance > track_bottom - 2:
                 raise IndexError(f'card_index out of range: bar {bar_index} card {card_index}, '
-                                 f'card bottom={card_bottom:.0f} > list end {content:.0f}')
-            ratio = (card_bottom - view) / (content - view)  # always inside (0, 1] here
-            # The thumb top can go no higher than one thumb length above the track bottom.
-            want_top = min(block[0] + ratio * (view - block_len), track_bottom - block_len)
-            # Clicking below the thumb puts its bottom edge at the click, so add one thumb length.
-            click_y = min(want_top + block_len, track_bottom - 2)
-            self.log_info(f'card bottom={card_bottom:.0f} view={view:.0f} block={block[0]}..{block[1]} '
-                          f'len={block_len} content={content:.0f} ratio={ratio:.3f} '
+                                 f'needs to scroll {scroll:.0f} but the list ends first')
+            # Clicking below the thumb puts the thumb bottom at the click, so add the advance.
+            click_y = block[1] + advance
+            self.log_info(f'card bottom={card_bottom:.0f} list_top={list_top:.0f} view={view:.0f} '
+                          f'thumb={block[0]}..{block[1]} scroll={scroll:.0f} advance={advance:.0f} '
                           f'click scroll_bar y={click_y:.0f}')
             self.click(BOOK_SCROLL_BAR_X, click_y / h, after_sleep=1.4)
             card_top, card_bottom = track_bottom - BOOK_CARD_H * h, track_bottom
         else:
-            self.log_info(f'card bottom={card_bottom:.0f} visible bottom={track_bottom:.0f} no scroll')
+            self.log_info(f'card bottom={card_bottom:.0f} view bottom={track_bottom:.0f} no scroll')
 
         # 4) The author looks the button up with its own template instead of a fixed position,
         #    because it does not scale linearly with the window. Search only the target card's rows.
@@ -1262,7 +1271,7 @@ class BaseWWTask(BaseTask):
                     raise_if_not_found=False,
                     threshold=0.6,
                     time_out=2):
-                self.click(confirm, after_sleep=1)
+                self.click(confirm, after_sleep=0.5)
         feature = self.wait_feature(['fast_travel_custom', 'gray_teleport', 'remove_custom', 'team_close'],
                                     time_out=10, settle_time=0.5, raise_if_not_found=True)
         return feature.name == 'team_close'
@@ -1296,8 +1305,10 @@ class BaseWWTask(BaseTask):
 # GAP is only the seam between two elements, H is the element itself; a pitch is H + GAP.
 BOOK_BAR_H = 58 / 1080               # bar height
 BOOK_CARD_H = 138 / 1080             # card height
+BOOK_GAP_LIST_TOP_BAR = 0.0135       # top of the scrollable area -> top of the first bar
 BOOK_GAP_BAR_CARD = 13 / 1080        # bar -> card
 BOOK_GAP_CARD_CARD = 15 / 1080       # card -> card
+BOOK_GAP_BAR_BAR = 9.5 / 1080        # bar -> bar when collapsed, so a collapsed pitch is 0.0625
 BOOK_SCROLL_BAR_X = 0.9730           # scroll bar x, same as the author
 BOOK_SCROLL_BAR_BOTTOM = 0.8806      # scroll bar track bottom, same as the author (measured 1 px off)
 BOOK_ARROW_THRESHOLD = 0.88          # match score required for the expanded arrow
