@@ -32,8 +32,7 @@ class FarmEchoTask(WWOneTimeTask, BaseCombatTask):
             'Which Weekly Boss in Bar to Teleport': 1,
             'Which Boss Challenge Bar to Teleport': 1,
             'Which Boss Challenge in Bar to Teleport': 1,
-            'Which Special Nightmare Bar to Teleport': 1,
-            'Which Special Nightmare in Bar to Teleport': 1,
+            'Which Special Nightmare to Teleport': 1,
         })
         self.config_description.update({
             'Boss': 'Select boss profile (includes Combat Wait Time)',
@@ -46,8 +45,7 @@ class FarmEchoTask(WWOneTimeTask, BaseCombatTask):
             'Which Weekly Boss in Bar to Teleport': 'Which Boss inside that Bar (from top, starting with 1)',
             'Which Boss Challenge Bar to Teleport': 'Which Bar (from top, starting with 1)',
             'Which Boss Challenge in Bar to Teleport': 'Which Boss inside that Bar (from top, starting with 1)',
-            'Which Special Nightmare Bar to Teleport': 'Which Bar (from top, starting with 1)',
-            'Which Special Nightmare in Bar to Teleport': 'Which Boss inside that Bar (from top, starting with 1)',
+            'Which Special Nightmare to Teleport': 'From Top to Bottom, Starting with 1',
         })
         self.find_echo_method = ['Yolo', 'Run in Circle', 'Walk']
         self.config_type['Teleport to Boss'] = {'type': "drop_down",
@@ -60,8 +58,7 @@ class FarmEchoTask(WWOneTimeTask, BaseCombatTask):
                                                     'Boss Challenge': ['Which Boss Challenge Bar to Teleport',
                                                                        'Which Boss Challenge in Bar to Teleport',
                                                                        'Boss Level'],
-                                                    'Special Nightmare': ['Which Special Nightmare Bar to Teleport',
-                                                                          'Which Special Nightmare in Bar to Teleport',
+                                                    'Special Nightmare': ['Which Special Nightmare to Teleport',
                                                                           'Boss Level'],
                                                 }}
         self.config_type['Boss Level'] = {'type': "drop_down", 'options': ['50', '60', '70', '80', '90'], }
@@ -291,12 +288,14 @@ class FarmEchoTask(WWOneTimeTask, BaseCombatTask):
             card_index = self.config.get('Which Boss Challenge in Bar to Teleport', 1)
         elif teleport_to_boss == 'Special Nightmare':
             feature = 'mengyan'
-            bar_index = self.config.get('Which Special Nightmare Bar to Teleport', 1)
-            card_index = self.config.get('Which Special Nightmare in Bar to Teleport', 1)
+            # The special nightmares are all in the second bar, the first one being the
+            # nightmare nests, so only the boss inside that bar is configurable.
+            bar_index = 2
+            card_index = self.config.get('Which Special Nightmare to Teleport', 1)
         else:
             raise RuntimeError(f'Unknown Teleport to Boss config: {teleport_to_boss}')
 
-        self.info_set('Teleport to Boss', f'{teleport_to_boss} {bar_index}-{card_index}')
+        self.info_set('Teleport to Boss', f'{teleport_to_boss} {card_index}')
         self.openF2Book('gray_book_boss')
         self.open_boss_book(feature)
         is_team = self.click_on_book_target(bar_index, card_index)

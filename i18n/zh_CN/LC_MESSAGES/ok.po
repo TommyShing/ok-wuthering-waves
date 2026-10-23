@@ -1463,12 +1463,6 @@ msgstr "传送到第几个Boss挑战区域"
 msgid "Which Boss Challenge in Bar to Teleport"
 msgstr "传送到该区域第几个Boss"
 
-msgid "Which Special Nightmare Bar to Teleport"
-msgstr "传送到第几个特异梦魇区域"
-
-msgid "Which Special Nightmare in Bar to Teleport"
-msgstr "传送到该区域第几个"
-
 msgid "Which Tacet Suppression Bar to Farm"
 msgstr "刷第几个无音清剿区域"
 
