@@ -1271,6 +1271,12 @@
             "file_name": "images/49.png",
             "width": 3840,
             "height": 2160
+        },
+        {
+            "id": 298,
+            "file_name": "images/50.png",
+            "width": 1920,
+            "height": 1080
         }
     ],
     "annotations": [
@@ -5399,6 +5405,21 @@
             ],
             "area": 4216,
             "iscrowd": 0
+        },
+        {
+            "id": 442,
+            "image_id": 298,
+            "category_id": 291,
+            "bbox": [
+                1791,
+                445,
+                36,
+                36
+            ],
+            "area": 1296,
+            "iscrowd": 0,
+            "ignore": 0,
+            "segmentation": []
         }
     ],
     "categories": [
@@ -6850,6 +6871,11 @@
         {
             "id": 290,
             "name": "suoming_forte_e",
+            "supercategory": ""
+        },
+        {
+            "id": 291,
+            "name": "book_arrow_expanded",
             "supercategory": ""
         }
     ]

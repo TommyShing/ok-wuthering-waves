@@ -1450,3 +1450,34 @@ msgstr "特异梦魇"
 
 msgid "Which Special Nightmare to Teleport"
 msgstr "传送到第几个特异梦魇"
+
+msgid "Which Weekly Boss Bar to Teleport"
+msgstr "传送到第几个周常Boss区域"
+
+msgid "Which Weekly Boss in Bar to Teleport"
+msgstr "传送到该区域第几个Boss"
+
+msgid "Which Boss Challenge Bar to Teleport"
+msgstr "传送到第几个Boss挑战区域"
+
+msgid "Which Boss Challenge in Bar to Teleport"
+msgstr "传送到该区域第几个Boss"
+
+msgid "Which Tacet Suppression Bar to Farm"
+msgstr "刷第几个无音清剿区域"
+
+msgid "Which Tacet Suppression in Bar to Farm"
+msgstr "刷该区域第几个"
+
+msgid "Which Forgery Challenge Bar to Farm"
+msgstr "刷第几个凝素领域区域"
+
+msgid "Which Forgery Challenge in Bar to Farm"
+msgstr "刷该区域第几个"
+
+msgid "Which Bar (from top, starting with 1)"
+msgstr "从上到下第几个区域，从1开始"
+
+msgid "Which Boss inside that Bar (from top, starting with 1)"
+msgstr "该区域内的第几个，从1开始"
+

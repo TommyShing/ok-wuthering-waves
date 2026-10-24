@@ -1,0 +1,23 @@
+Syntax OK: 95 files
+Git HEAD: a499df3
+{"sample": "class_1080p_expanded.png", "size": [1920, 1080], "arrows": [[1808, 246], [1809, 466], [1808, 840]], "gold": [true, false, false], "block": [213, 350]}
+{"sample": "class_1440p_collapsed.png", "size": [2560, 1440], "arrows": [], "gold": [], "block": null}
+{"sample": "verify_short.png", "size": [1920, 1080], "arrows": [[1808, 246], [1809, 466], [1808, 840]], "gold": [true, false, false], "block": [215, 347]}
+{"sample": "verify_long.png", "size": [1920, 1080], "arrows": [[1809, 313], [1808, 822]], "gold": [false, false], "block": [215, 845]}
+{"sample": "verify_mid.png", "size": [1920, 1080], "arrows": [[1808, 507]], "gold": [false], "block": [274, 908]}
+{"sample": "verify_bottom.png", "size": [1920, 1080], "arrows": [[1808, 463]], "gold": [false], "block": [316, 948]}
+{"sample": "verify_collapsed.png", "size": [2560, 1440], "arrows": [], "gold": [], "block": null}
+{"sample": "11-28-35.525_resolution_error_original.png", "size": [2560, 1600], "arrows": [], "gold": [], "block": null}
+{"sample": "Windows Graphics Capture_1920x1080_1792417799738.063_original.png", "size": [1920, 1080], "arrows": [[1809, 313], [1808, 822]], "gold": [false, false], "block": [213, 848]}
+{"sample": "Windows Graphics Capture_1920x1080_1792419796039.4077_original.png", "size": [1920, 1080], "arrows": [[1808, 507]], "gold": [false], "block": [272, 911]}
+{"sample": "Windows Graphics Capture_1920x1080_1792421011645.1003_original.png", "size": [1920, 1080], "arrows": [[1808, 463]], "gold": [false], "block": [314, 953]}
+Collapsed arrow negative score: 0.52
+Mock N=3/M=2: collapse order [2, 1], challenge y= 703
+Mock N=3/M=4: scroll branch used; all coordinates within frame
+Mock lower bounds and no-arrow failure: OK
+Legacy config migration intentionally omitted per user; new config persistence is checked by verify_config_persistence.py
+{"lang": "zh_CN", "old_messages": 457, "new_messages": 477, "new_keys_checked": 12, "missing": [], "lost": [], "changed": []}
+PO/MO matching messages: zh_CN 476
+{"lang": "zh_TW", "old_messages": 484, "new_messages": 503, "new_keys_checked": 12, "missing": [], "lost": [], "changed": []}
+PO/MO matching messages: zh_TW 502
+Offline checks completed; single-bar card limits and navigation recovery are not fully validated.

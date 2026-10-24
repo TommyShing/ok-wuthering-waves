@@ -1,0 +1,10 @@
+Fresh Python process reload: PASS (4 task configs, 14 target fields)
+FarmEchoTask: immediate disk save, option switches, 3 reloads PASS (6 fields)
+FarmEchoTask: existing personal target values retained on isolated reload PASS
+DailyTask: immediate disk save, option switches, 3 reloads PASS (4 fields)
+DailyTask: existing personal target values retained on isolated reload PASS
+TacetTask: immediate disk save, option switches, 3 reloads PASS (2 fields)
+TacetTask: existing personal target values retained on isolated reload PASS
+ForgeryTask: immediate disk save, option switches, 3 reloads PASS (2 fields)
+ForgeryTask: existing personal target values retained on isolated reload PASS
+New-scheme persistence PASS; personal configs were not modified.

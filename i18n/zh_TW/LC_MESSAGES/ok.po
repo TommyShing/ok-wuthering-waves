@@ -1528,3 +1528,34 @@ msgstr "特異夢魘"
 
 msgid "Which Special Nightmare to Teleport"
 msgstr "傳送到第幾個特異夢魘"
+
+msgid "Which Weekly Boss Bar to Teleport"
+msgstr "傳送到第幾個週常Boss區域"
+
+msgid "Which Weekly Boss in Bar to Teleport"
+msgstr "傳送到該區域第幾個Boss"
+
+msgid "Which Boss Challenge Bar to Teleport"
+msgstr "傳送到第幾個Boss挑戰區域"
+
+msgid "Which Boss Challenge in Bar to Teleport"
+msgstr "傳送到該區域第幾個Boss"
+
+msgid "Which Tacet Suppression Bar to Farm"
+msgstr "刷第幾個無音清剿區域"
+
+msgid "Which Tacet Suppression in Bar to Farm"
+msgstr "刷該區域第幾個"
+
+msgid "Which Forgery Challenge Bar to Farm"
+msgstr "刷第幾個凝素領域區域"
+
+msgid "Which Forgery Challenge in Bar to Farm"
+msgstr "刷該區域第幾個"
+
+msgid "Which Bar (from top, starting with 1)"
+msgstr "從上到下第幾個區域，從1開始"
+
+msgid "Which Boss inside that Bar (from top, starting with 1)"
+msgstr "該區域內的第幾個，從1開始"
+

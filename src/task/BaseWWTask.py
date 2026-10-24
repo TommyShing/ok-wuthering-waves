@@ -1138,85 +1138,142 @@ class BaseWWTask(BaseTask):
                 raise Exception('must be in game world and in teams')
         return True
 
-    def _find_book_scroll_top(self):
-        box = self.box_of_screen(0.969, 0.191, 0.978, 0.271, name="bar")
-        self.draw_boxes(boxes=box, color="blue")
-        min_width = self.width_of_screen(5 / 2560)
-        min_height = self.height_of_screen(10 / 1440)
-        boxes = find_color_rectangles(self.frame, book_bar_color, min_width, min_height, threshold=0.8, box=box)
-        if not boxes:
-            return 424 / 2160
-        bar = boxes[0]
-        self.draw_boxes(boxes=bar, color="red")
-        return bar.y / self.height
+    # ---------- F2 book list: locate by "N-th bar / M-th card inside it" ----------
+    def _book_find_arrows(self, frame):
+        """Return the expanded bar arrows as boxes, top to bottom."""
+        return self.find_feature('book_arrow_expanded', frame=frame, limit=0,
+                                 threshold=BOOK_ARROW_THRESHOLD,
+                                 box=self.box_of_screen(0.90, 0.13, 0.97, 0.97))
 
-    def click_on_book_target(self, serial_number: int, total_number: int, structure: list[int] = None):
-        def get_cross_count(structure, sn):
-            current_sum = 0
-            cross_count = 0
-            for s in structure:
-                current_sum += s
-                if sn > current_sum:
-                    cross_count += 1
-                else:
-                    break
-            return cross_count
+    def _book_sliding_block(self, frame):
+        """Return the scroll bar thumb as (top, bottom) ratios of the window height, None when
+        the list fits one screen."""
+        box = self.box_of_screen(0.969, 0.10, 0.978, 0.98)
+        rects = find_color_rectangles(frame, book_bar_color,
+                                      self.width_of_screen(5 / 2560), self.height_of_screen(10 / 1440),
+                                      threshold=0.8, box=box)
+        if not rects:
+            return None
+        rect = max(rects, key=lambda r: r.height)
+        return rect.y / self.height, (rect.y + rect.height) / self.height
 
+    def _book_bar_is_gold(self, frame, arrow):
+        """Whether the bar behind the arrow is gold (early access). Samples the top rows of the
+        arrow box, which sit above the glyph and away from its glow."""
+        x0, y0 = arrow.x, arrow.y
+        patch = frame[y0:y0 + self.height_of_screen(4 / 1080),
+                      x0:x0 + self.height_of_screen(8 / 1080), :3].astype(int)
+        b, g, _ = patch.mean(axis=(0, 1))
+        return (g - b) > 15
+
+    def click_on_book_target(self, bar_index: int, card_index: int):
+        """Click the M-th card inside the N-th bar of the F2 book list.
+
+        Assumes every bar is expanded and the list is scrolled to the top on entry.
+        Only the up arrow of an expanded bar is recognized, so once the bars above the target
+        are collapsed the first up arrow is the target bar. Its cards are then placed from that
+        bar's own bottom edge, and the challenge button is found by its own template inside the
+        target card's rows, the same way the author finds it.
+        Raises IndexError when no scroll bar exists or the target is past the end of the list.
+        The number of cards inside a middle bar cannot be verified.
+        Returns is_team, True when the team screen opened.
+        """
         self.sleep(0.5)
-        bar_bottom = 0.8806
-        bar_x = 0.9730
-        header_h = 0.028  # calibrated header height (~40px @1440), replaces separator=0.01
-        cross_count = 0
-        container_max_rows = 4
-        target_index = -1
+        if bar_index < 1 or card_index < 1:
+            raise IndexError(f'bar_index and card_index must start from 1, got {bar_index}, {card_index}')
 
-        bar_top = self._find_book_scroll_top()
+        # 1) Collapse the bars above the target, bottom-up: a click only moves the bars below it,
+        #    so the ones still above keep their coordinates and a whole screenful can go in one
+        #    pass. Bars further down only come into view once the ones above are gone, so the
+        #    arrows are recognized again after every pass, until bar_index - 1 are gone.
+        self.next_frame()
+        arrows = self._book_find_arrows(self.frame)
+        if not arrows:
+            raise IndexError(f'no bar found in this tab, bar_index={bar_index}')
+        collapsed = 0
+        while collapsed < bar_index - 1:
+            todo = arrows[:bar_index - 1 - collapsed]
+            if not todo:
+                raise IndexError(f'bar_index out of range: {bar_index}, this tab has only {collapsed} bars')
+            for i in reversed(range(len(todo))):
+                self.log_info(f'collapse bar {collapsed + i + 1}')
+                self.click(todo[i], after_sleep=0.9)
+            collapsed += len(todo)
+            self.next_frame()
+            arrows = self._book_find_arrows(self.frame)
+        if not arrows:
+            raise IndexError(f'bar_index out of range: {bar_index}, this tab has only {collapsed} bars')
 
-        if serial_number <= container_max_rows:
-            target_index = serial_number - 1
+        # 2) A collapsed bar keeps its slot and only turns its arrow downward, so the first up
+        #    arrow is the target bar. Every bar above it is collapsed now and the list is still
+        #    at the top, so one collapsed pitch per bar above it walks back up to the top of the
+        #    list, which is what the scroll step measures the visible height from. Everything
+        #    below is a ratio of the window height, like the constants, so no pixel math is left.
+        bar_top = arrows[0].center()[1] / self.height - BOOK_BAR_H / 2
+        bar_bottom = bar_top + BOOK_BAR_H
+        list_top = (bar_top - (bar_index - 1) * (BOOK_BAR_H + BOOK_GAP_BAR_BAR)
+                    - BOOK_GAP_LIST_TOP_BAR)
+        # Gold means early access; both kinds continue down the author's flow.
+        gold = self._book_bar_is_gold(self.frame, arrows[0])
+        self.log_info(f'target bar is {"GOLD (early access)" if gold else "normal"}')
+        card_top = bar_bottom + BOOK_GAP_BAR_CARD + (card_index - 1) * (BOOK_CARD_H + BOOK_GAP_CARD_CARD)
+        card_bottom = card_top + BOOK_CARD_H
+
+        # 3) Only a card that runs past the bottom of the view needs the scroll bar. Without one
+        #    the card is unreachable, and a card past the end of the list cannot be reached by
+        #    scrolling either; both raise instead of clicking blind, which would land on another
+        #    card and silently travel to the wrong boss.
+        if card_bottom > BOOK_SCROLL_BAR_BOTTOM:
+            block = self._book_sliding_block(self.frame)
+            if not block:
+                raise IndexError(f'card_index out of range: bar {bar_index} card {card_index}, '
+                                 f'card bottom={card_bottom:.4f} > view bottom '
+                                 f'{BOOK_SCROLL_BAR_BOTTOM:.4f}, no scroll bar found')
+            # The view is the part of the list on screen: from the top of the list down to the
+            # bottom of the track.
+            view = BOOK_SCROLL_BAR_BOTTOM - list_top
+            block_len = block[1] - block[0]
+            # How far the list has to move up for the card bottom to reach the view bottom.
+            scroll = card_bottom - BOOK_SCROLL_BAR_BOTTOM
+            # The thumb advances by the same fraction of its own length as the content does of
+            # the view, so this is the thumb distance that scrolls the content by `scroll`.
+            advance = scroll * block_len / view
+            # The thumb can only move until its bottom reaches the track bottom.
+            if block[1] + advance > BOOK_SCROLL_BAR_BOTTOM:
+                raise IndexError(f'card_index out of range: bar {bar_index} card {card_index}, '
+                                 f'needs to scroll {scroll:.4f} but the list ends first')
+            # Clicking below the thumb puts the thumb bottom at the click, so add the advance.
+            click_y = block[1] + advance
+            self.log_info(f'card bottom={card_bottom:.4f} list_top={list_top:.4f} view={view:.4f} '
+                          f'thumb={block[0]:.4f}..{block[1]:.4f} scroll={scroll:.4f} '
+                          f'advance={advance:.4f} click scroll_bar y={click_y:.4f}')
+            self.click(BOOK_SCROLL_BAR_X, click_y, after_sleep=1.4)
+            card_top, card_bottom = BOOK_SCROLL_BAR_BOTTOM - BOOK_CARD_H, BOOK_SCROLL_BAR_BOTTOM
         else:
-            calib_cross = get_cross_count(structure, serial_number) if structure else 0
-            calib_container_h = (bar_bottom - bar_top - (len(structure) - 1) * header_h) if structure else (
-                        bar_bottom - bar_top)
-            calib_item_h = calib_container_h / total_number if total_number else 0
-            calib_y = min(bar_top + calib_item_h * serial_number + calib_cross * header_h, bar_bottom)
-            to_click_y = calib_y
-            item_h = calib_item_h
-            self.click(bar_x, to_click_y, after_sleep=1)
-        btns = self.find_feature('boss_proceed', box=self.box_of_screen(0.9113, 0.229, 0.9613, 0.861), threshold=0.8)
-        # adaptive retry: closed-loop correction for residual underscroll (found 3/4 with low max_y)
-        if not target_index > -1 and btns and len(btns) in (3, 4) and structure and serial_number > container_max_rows:
-            max_y = max(b.y / self.height for b in btns)
-            if max_y < 0.73:
-                retry_y = min(to_click_y + item_h * 0.55, bar_bottom) if 'item_h' in locals() and item_h else min(
-                    to_click_y + 0.018, bar_bottom)
-                self.click(bar_x, retry_y, after_sleep=1)
-                btns = self.find_feature('boss_proceed', box=self.box_of_screen(0.9113, 0.229, 0.9613, 0.861),
-                                         threshold=0.8)
-        if not btns:
-            raise Exception("can't find boss_proceed")
-        if target_index > -1:
-            if target_index < len(btns):
-                target = btns[target_index]
-            else:
-                # Fallback: not enough visible rows, scroll with calibrated header
-                calib_cross2 = get_cross_count(structure, serial_number) if structure else 0
-                calib_h2 = (bar_bottom - bar_top - (len(structure) - 1) * header_h) if structure else (
-                            bar_bottom - bar_top)
-                calib_y2 = min(bar_top + (calib_h2 / total_number) * serial_number + calib_cross2 * header_h,
-                               bar_bottom) if total_number else bar_bottom
-                self.click(bar_x, calib_y2, after_sleep=1)
-                btns = self.find_feature('boss_proceed', box=self.box_of_screen(0.9113, 0.229, 0.9613, 0.861),
-                                         threshold=0.8)
-                if not btns:
-                    raise Exception("can't find boss_proceed after scroll")
-                target = max(btns, key=lambda box: box.y)
-        else:
-            target = max(btns, key=lambda box: box.y)
-        self.draw_boxes(boxes=target, color="red")
-        self.click(target, after_sleep=1)
-        feature = self.wait_feature(['fast_travel_custom', 'gray_teleport', 'remove_custom', 'team_close'], time_out=10,
-                                    settle_time=0.5, raise_if_not_found=True)
+            self.log_info(f'card bottom={card_bottom:.4f} view bottom={BOOK_SCROLL_BAR_BOTTOM:.4f} '
+                          f'no scroll')
+
+        # 4) The author looks the button up with its own template instead of a fixed position,
+        #    because it does not scale linearly with the window. Search only the target card's rows.
+        button = self.find_one('boss_proceed', threshold=0.8,
+                               box=self.box_of_screen(0.9113, card_top, 0.9613, card_bottom))
+        if not button:
+            raise IndexError(f'no challenge button found for bar {bar_index} card {card_index}, '
+                             f'rows {card_top:.4f}..{card_bottom:.4f}')
+        self.log_info(f'click challenge button {button}')
+        self.click(button, after_sleep=1)
+        if gold:
+            # A gold bar is early access, so the game warns that travelling there may spoil the
+            # story and asks to confirm. Same two-button dialog as the 4C restart, answered the
+            # same way: not finding it is fine, because the warning is not always shown.
+            if confirm := self.wait_feature(
+                    ['confirm_btn_hcenter_vcenter', 'confirm_btn_highlight_hcenter_vcenter'],
+                    raise_if_not_found=False,
+                    threshold=0.6,
+                    time_out=2):
+                self.click(confirm, after_sleep=0.5)
+        feature = self.wait_feature(['fast_travel_custom', 'gray_teleport', 'remove_custom', 'team_close'],
+                                    time_out=10, settle_time=0.5, raise_if_not_found=True)
         return feature.name == 'team_close'
 
     def change_time_to_night(self):
@@ -1243,6 +1300,18 @@ class BaseWWTask(BaseTask):
     def jump(self, after_sleep=0.01):
         self.send_key(self.key_config.get('Jump Key'), after_sleep=after_sleep)
 
+
+# ---- F2 book list geometry, measured at 1080p and kept as ratios of the window ----
+# GAP is only the seam between two elements, H is the element itself; a pitch is H + GAP.
+BOOK_BAR_H = 58 / 1080               # bar height
+BOOK_CARD_H = 138 / 1080             # card height
+BOOK_GAP_LIST_TOP_BAR = 0.0135       # top of the scrollable area -> top of the first bar
+BOOK_GAP_BAR_CARD = 13 / 1080        # bar -> card
+BOOK_GAP_CARD_CARD = 15 / 1080       # card -> card
+BOOK_GAP_BAR_BAR = 9.5 / 1080        # bar -> bar when collapsed, so a collapsed pitch is 0.0625
+BOOK_SCROLL_BAR_X = 0.9730           # scroll bar x, same as the author
+BOOK_SCROLL_BAR_BOTTOM = 0.8806      # scroll bar track bottom, same as the author (measured 1 px off)
+BOOK_ARROW_THRESHOLD = 0.88          # match score required for the expanded arrow
 
 book_bar_color = {
     "r": (190, 255),

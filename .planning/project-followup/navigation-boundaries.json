@@ -1,0 +1,37 @@
+[
+  {
+    "case": "list_end",
+    "N": 3,
+    "M": 30,
+    "status": "IndexError: card_index out of range: bar 3 card 30, to_bottom=4796 > list end 3416",
+    "challenge_y": []
+  },
+  {
+    "case": "no_slider",
+    "N": 3,
+    "M": 30,
+    "status": "returned",
+    "challenge_y": [
+      4987.000000000001
+    ]
+  },
+  {
+    "case": "collapse_rounds_exhausted",
+    "N": 99,
+    "M": 1,
+    "status": "returned",
+    "challenge_y": [
+      7030.0
+    ]
+  },
+  {
+    "case": "per_bar_unchecked",
+    "N": 1,
+    "M": 5,
+    "status": "returned",
+    "challenge_y": [
+      870.4680000000001
+    ],
+    "limitation": "The function checks whole-list length, not the selected bar's card count; this is not evidence of a real game mis-teleport."
+  }
+]

@@ -1,0 +1,57 @@
+[
+  {
+    "case": "outside_no_slider",
+    "height": 1080,
+    "N": 3,
+    "M": 4,
+    "status": "card_index out of range: bar 3 card 4, challenge y=1009 > visible bottom 951, no scroll bar found",
+    "challenge_y": []
+  },
+  {
+    "case": "outside_no_slider",
+    "height": 1080,
+    "N": 3,
+    "M": 30,
+    "status": "card_index out of range: bar 3 card 30, challenge y=4987 > visible bottom 951, no scroll bar found",
+    "challenge_y": []
+  },
+  {
+    "case": "beyond_list_end",
+    "height": 1080,
+    "N": 3,
+    "M": 30,
+    "status": "card_index out of range: bar 3 card 30, to_bottom=4796 > list end 3416",
+    "challenge_y": []
+  },
+  {
+    "case": "outside_no_slider",
+    "height": 1440,
+    "N": 3,
+    "M": 4,
+    "status": "card_index out of range: bar 3 card 4, challenge y=1345 > visible bottom 1268, no scroll bar found",
+    "challenge_y": []
+  },
+  {
+    "case": "outside_no_slider",
+    "height": 1440,
+    "N": 3,
+    "M": 30,
+    "status": "card_index out of range: bar 3 card 30, challenge y=6649 > visible bottom 1268, no scroll bar found",
+    "challenge_y": []
+  },
+  {
+    "case": "beyond_list_end",
+    "height": 1440,
+    "N": 3,
+    "M": 30,
+    "status": "card_index out of range: bar 3 card 30, to_bottom=6394 > list end 4554",
+    "challenge_y": []
+  },
+  {
+    "case": "collapse_rounds_exhausted",
+    "N": 99,
+    "M": 1,
+    "status": "could not reach bar 99: collapsed 16 preceding bars after 16 rounds",
+    "challenge_y": []
+  }
+]
