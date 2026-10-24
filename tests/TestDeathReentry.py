@@ -45,25 +45,28 @@ class TestTacetDeathReentry(unittest.TestCase):
                      'wait_click_skip_dialog_confirm'):
             setattr(task, name, noop)
         task.get_stamina = lambda: (120, 0, 120)
-        task.teleport_to_tacet = lambda index: task.teleports.append(index)
+        task.teleport_to_tacet = lambda bar_index, card_index: task.teleports.append(
+            (bar_index, card_index))
         task.has_claim_stamina = lambda: True
         task.use_stamina = lambda once, must_use: (False, once)
         task.log_info = lambda message, **kwargs: task.logs.append(message)
         return task
 
+    TACET_CONFIG = {'Which Tacet Suppression Bar to Farm': 1, 'Which Tacet Suppression in Bar to Farm': 1}
+
     def test_reenter_from_f2_book_after_revive(self):
         task = self.make_task(deaths=1)
 
-        task.farm_tacet(config={'Which Tacet Suppression to Farm': 1})
+        task.farm_tacet(config=self.TACET_CONFIG)
 
-        self.assertEqual([0, 0], task.teleports)
+        self.assertEqual([(1, 1), (1, 1)], task.teleports)
         self.assertEqual(2, len(task.combat_calls))
         self.assertIn('farm_tacet: death recovered, re-enter from F2 book', task.logs)
 
     def test_stop_after_max_recovery_retries(self):
         task = self.make_task(deaths=99)
 
-        self.assertIsNone(task.farm_tacet(config={'Which Tacet Suppression to Farm': 1}))
+        self.assertIsNone(task.farm_tacet(config=self.TACET_CONFIG))
 
         self.assertEqual(3, len(task.teleports))
         self.assertEqual(3, len(task.combat_calls))
@@ -74,7 +77,7 @@ class TestTacetDeathReentry(unittest.TestCase):
         task.realm_entry_at_heal_point = True  # 上一次运行的残留
         flags = record_heal_point(task, 'combat_once')
 
-        task.farm_tacet(config={'Which Tacet Suppression to Farm': 1})
+        task.farm_tacet(config=self.TACET_CONFIG)
 
         self.assertEqual([False, True, True], flags)
 
