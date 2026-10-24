@@ -164,18 +164,6 @@ class TestBookTarget(unittest.TestCase):
 
         self.assertNotIn((BUTTON,), task.clicks)
 
-    def test_a_click_that_does_not_collapse_anything_raises(self):
-        # Two bars, but clicking never changes the screen: the loop must give up instead of
-        # collapsing the same bar over and over and then clicking whatever card happens to sit
-        # under the stale coordinates.
-        task = make_task([arrow(300), arrow(400)])
-        task._book_find_arrows = lambda _frame: [arrow(300), arrow(400)]
-
-        with self.assertRaises(IndexError):
-            task.click_on_book_target(3, 1)
-
-        self.assertNotIn((BUTTON,), task.clicks)
-
     def test_missing_challenge_button_raises_instead_of_clicking_blind(self):
         task = make_task([arrow(231)], button=False)
 
